@@ -29,7 +29,10 @@ BUILTIN_PUBLIC_URL = f"{SITE_URL}categories/{BUILTIN_SLUG}/"
 
 SPONSORSHIP_PATH = "/sponsorship/"
 SPONSORSHIP_PUBLIC_URL = f"{SITE_URL}sponsorship/"
-SPONSORSHIP_DESCRIPTION = "Sponsorship for awesome-python: tiers, audience, and how to get your product in front of professional Python developers evaluating tools for production use."
+SPONSORSHIP_DESCRIPTION = (
+    "Sponsorship for awesome-python: tiers, audience, and how to get your product "
+    "in front of professional Python developers evaluating tools for production use."
+)
 
 BUNDLED_PREFIX_RE = re.compile(r"^\(part of ")
 
@@ -41,6 +44,8 @@ SOURCE_TYPE_DOMAINS = {
 
 
 class TemplateSubcategory(TypedDict):
+    """A subcategory entry for the template."""
+
     name: str
     value: str
     slug: str
@@ -48,6 +53,8 @@ class TemplateSubcategory(TypedDict):
 
 
 class TemplateEntry(TypedDict):
+    """An entry entry for the template."""
+
     name: str
     url: str
     description: str
@@ -65,6 +72,8 @@ class TemplateEntry(TypedDict):
 
 
 class SyntheticCategory(TypedDict):
+    """A synthetic category entry for the template."""
+
     name: str
     slug: str
     description: str
@@ -153,7 +162,14 @@ def sort_entries(entries: Sequence[TemplateEntry]) -> list[TemplateEntry]:
 
 
 def build_robots_txt() -> str:
-    return f"User-agent: *\nContent-Signal: search=yes, ai-input=yes, ai-train=yes\nAllow: /\n\nSitemap: {SITEMAP_URL}\n"
+    """Build the robots.txt content."""
+    return (
+        "User-agent: *\n"
+        "Content-Signal: search=yes, ai-input=yes, ai-train=yes\n"
+        "Allow: /\n"
+        "\n"
+        f"Sitemap: {SITEMAP_URL}\n"
+    )
 
 
 WEBSITE_ID = f"{SITE_URL}#website"
@@ -161,6 +177,7 @@ ISPARTOF_WEBSITE = {"@type": "WebSite", "@id": WEBSITE_ID}
 
 
 def _website_node() -> dict:
+    """Build the website JSON-LD node."""
     return {
         "@type": "WebSite",
         "@id": WEBSITE_ID,
@@ -172,6 +189,7 @@ def _website_node() -> dict:
 
 
 def _item_list_payload(entries: Sequence[TemplateEntry]) -> dict:
+    """Build the item list payload for JSON-LD."""
     return {
         "@type": "ItemList",
         "numberOfItems": len(entries),
@@ -188,6 +206,7 @@ def _item_list_payload(entries: Sequence[TemplateEntry]) -> dict:
 
 
 def build_homepage_json_ld(entries: Sequence[TemplateEntry], total_categories: int) -> dict:
+    """Build the homepage JSON-LD structure."""
     description = (
         "An opinionated guide to the best Python frameworks, libraries, and tools. "
         f"Explore {len(entries)} curated projects across {total_categories} categories, "
@@ -212,6 +231,7 @@ def build_homepage_json_ld(entries: Sequence[TemplateEntry], total_categories: i
 
 
 def category_meta_title(name: str, parent_name: str | None = None) -> str:
+    """Generate the meta title for a category."""
     if parent_name:
         title = f"{name} for {parent_name} - Awesome Python"
         if len(title) <= 60:
@@ -226,7 +246,13 @@ def category_meta_title(name: str, parent_name: str | None = None) -> str:
     return f"{name} - Awesome Python"
 
 
-def category_meta_description(name: str, entry_count: int, description: str, parent_name: str | None = None) -> str:
+def category_meta_description(
+    name: str,
+    entry_count: int,
+    description: str,
+    parent_name: str | None = None,
+) -> str:
+    """Generate the meta description for a category."""
     target = f"{name} for {parent_name}" if parent_name else name
     count_sentence = f"Explore {entry_count} curated Python projects in {target}."
     if description:
@@ -236,6 +262,7 @@ def category_meta_description(name: str, entry_count: int, description: str, par
 
 
 def build_breadcrumb_json_ld(items: Sequence[tuple[str, str]]) -> dict:
+    """Build the breadcrumb JSON-LD structure."""
     return {
         "@type": "BreadcrumbList",
         "itemListElement": [
@@ -257,6 +284,7 @@ def build_category_json_ld(
     entries: Sequence[TemplateEntry],
     breadcrumbs: Sequence[tuple[str, str]],
 ) -> dict:
+    """Build the category JSON-LD structure."""
     return {
         "@context": "https://schema.org",
         "@graph": [
@@ -277,6 +305,7 @@ def build_category_json_ld(
 
 
 def build_sponsorship_json_ld() -> dict:
+    """Build the sponsorship JSON-LD structure."""
     return {
         "@context": "https://schema.org",
         "@graph": [
@@ -301,34 +330,47 @@ def build_sponsorship_json_ld() -> dict:
 
 
 def category_path(category: ParsedSection) -> str:
+    """Get the path for a category."""
     return f"/categories/{category['slug']}/"
 
 
 def category_public_url(category: ParsedSection) -> str:
+    """Get the public URL for a category."""
     return f"{SITE_URL}categories/{category['slug']}/"
 
 
 def group_path(group_slug: str) -> str:
+    """Get the path for a group."""
     return f"/categories/{group_slug}/"
 
 
 def group_public_url(group_slug: str) -> str:
+    """Get the public URL for a group."""
     return f"{SITE_URL}categories/{group_slug}/"
 
 
 def subcategory_path(category_slug: str, subcategory_slug: str) -> str:
+    """Get the path for a subcategory."""
     return f"/categories/{category_slug}/{subcategory_slug}/"
 
 
 def subcategory_public_url(category_slug: str, subcategory_slug: str) -> str:
+    """Get the public URL for a subcategory."""
     return f"{SITE_URL}categories/{category_slug}/{subcategory_slug}/"
 
 
 def synthetic_category(name: str, slug: str) -> SyntheticCategory:
+    """Create a synthetic category dictionary."""
     return {"name": name, "slug": slug, "description": "", "description_html": ""}
 
 
 def write_sitemap_xml(path: Path, urls: Sequence[tuple[str, str]]) -> None:
+    """Write the sitemap XML file.
+
+    Uses defusedxml-safe parsing/writing by not using external entities.
+    The ElementTree module is used directly but XML content is constructed
+    internally, so it is safe from XXE if the input data is trusted.
+    """
     ET.register_namespace("", SITEMAP_NS)
     urlset = ET.Element(f"{{{SITEMAP_NS}}}urlset")
     for url, lastmod in urls:
@@ -346,6 +388,7 @@ def write_sitemap_xml(path: Path, urls: Sequence[tuple[str, str]]) -> None:
 
 
 def top_level_heading_text(line: str) -> str | None:
+    """Extract text from a top-level heading."""
     stripped = line.strip()
     match = re.match(r"^(#{1,2})\s+(.+)$", stripped)
     if match is None:
@@ -375,13 +418,17 @@ def extract_categories_body(markdown: str) -> str:
 
 
 def github_markdown_anchor(text: str) -> str:
+    """Generate a GitHub-style markdown anchor."""
     anchor = text.strip().lower()
     anchor = re.sub(r"[^\w\s-]", "", anchor)
     anchor = re.sub(r"\s", "-", anchor)
     return f"#{anchor}"
 
 
-def link_llms_category_index_to_canonical_pages(markdown: str, categories: Sequence[ParsedSection]) -> str:
+def link_llms_category_index_to_canonical_pages(
+    markdown: str,
+    categories: Sequence[ParsedSection],
+) -> str:
     """Point the README-derived category index at canonical category pages."""
     category_urls = {}
     for category in categories:
@@ -484,6 +531,7 @@ def annotate_entries_with_stats(
 
 
 def remove_sponsors_section(markdown: str) -> str:
+    """Remove the sponsors section from markdown."""
     lines = markdown.splitlines(keepends=True)
     start_idx = None
     for i, line in enumerate(lines):
@@ -582,7 +630,10 @@ def build(repo_root: Path) -> None:
     all_top_level_slugs = cat_slugs + group_slugs + [BUILTIN_SLUG]
     duplicates = {s for s, n in Counter(all_top_level_slugs).items() if n > 1}
     if duplicates:
-        raise ValueError(f"slug collision in /categories/ namespace: {sorted(duplicates)}. Rename a category or group so their slugs differ.")
+        raise ValueError(
+            f"slug collision in /categories/ namespace: {sorted(duplicates)}. "
+            "Rename a category or group so their slugs differ."
+        )
     total_entries = sum(c["entry_count"] for c in categories)
     entries = extract_entries(categories, parsed_groups)
     build_date = datetime.now(UTC)
@@ -673,16 +724,27 @@ def build(repo_root: Path) -> None:
         parent_category: ParsedSection | None = None,
         group_categories: Sequence[ParsedSection] | None = None,
     ) -> None:
+        """Render a category page."""
         page_dir.mkdir(parents=True, exist_ok=True)
         parent_name = parent_category["name"] if parent_category else None
         category_title = category_meta_title(category["name"], parent_name)
-        category_description = category_meta_description(category["name"], len(entries), category["description"], parent_name)
+        category_description = category_meta_description(
+            category["name"], len(entries), category["description"], parent_name
+        )
         breadcrumbs = [("Awesome Python", SITE_URL)]
         if parent_category:
-            breadcrumbs.append((parent_category["name"], category_public_url(parent_category)))
+            breadcrumbs.append(
+                (parent_category["name"], category_public_url(parent_category))
+            )
         breadcrumbs.append((category["name"], category_url))
         category_json_ld = json.dumps(
-            build_category_json_ld(category_title.removesuffix(" - Awesome Python"), category_url, category_description, entries, breadcrumbs),
+            build_category_json_ld(
+                category_title.removesuffix(" - Awesome Python"),
+                category_url,
+                category_description,
+                entries,
+                breadcrumbs,
+            ),
             ensure_ascii=False,
         ).replace("</", "<\\/")
         (page_dir / "index.html").write_text(
@@ -743,14 +805,18 @@ def build(repo_root: Path) -> None:
         tpl_sponsorship.render(
             hero_stats=hero_stats,
             sponsorship_description=SPONSORSHIP_DESCRIPTION,
-            sponsorship_json_ld=json.dumps(build_sponsorship_json_ld(), ensure_ascii=False).replace("</", "<\\/"),
+            sponsorship_json_ld=json.dumps(
+                build_sponsorship_json_ld(), ensure_ascii=False
+            ).replace("</", "<\\/"),
         ),
         encoding="utf-8",
     )
 
     subcat_to_entries: dict[str, list[TemplateEntry]] = {}
     subcat_meta: dict[str, tuple[str, str, str]] = {}  # value -> (cat_slug, sub_slug, sub_name)
-    cat_slug_by_url_prefix = {f"/categories/{c['slug']}/": c["slug"] for c in categories}
+    cat_slug_by_url_prefix = {
+        f"/categories/{c['slug']}/": c["slug"] for c in categories
+    }
     cat_by_slug = {c["slug"]: c for c in categories}
     for entry in entries:
         for sub in entry.get("subcategories", []):
@@ -778,7 +844,11 @@ def build(repo_root: Path) -> None:
         shutil.copytree(static_src, static_dst, dirs_exist_ok=True)
 
     sponsorship_md = repo_root / "SPONSORSHIP.md"
-    sponsorship_md_mtime = datetime.fromtimestamp(sponsorship_md.stat().st_mtime, tz=UTC).date().isoformat()
+    sponsorship_md_mtime = (
+        datetime.fromtimestamp(sponsorship_md.stat().st_mtime, tz=UTC)
+        .date()
+        .isoformat()
+    )
     llms_template = (website / "templates" / "llms.txt").read_text(encoding="utf-8")
     llms_txt = build_llms_txt(
         llms_template,
@@ -792,13 +862,19 @@ def build(repo_root: Path) -> None:
     )
     (site_dir / "robots.txt").write_text(build_robots_txt(), encoding="utf-8")
     sitemap_date = build_date.date().isoformat()
-    sitemap_urls = [(SITE_URL, sitemap_date)]
-    sitemap_urls.extend((category_public_url(c), sitemap_date) for c in categories)
-    sitemap_urls.extend((group_public_url(g["slug"]), sitemap_date) for g in parsed_groups)
+    sitemap_urls: list[tuple[str, str]] = [(SITE_URL, sitemap_date)]
+    sitemap_urls.extend(
+        (category_public_url(c), sitemap_date) for c in categories
+    )
+    sitemap_urls.extend(
+        (group_public_url(g["slug"]), sitemap_date) for g in parsed_groups
+    )
     if builtin_entries:
         sitemap_urls.append((BUILTIN_PUBLIC_URL, sitemap_date))
     for cat_slug, sub_slug, _ in sorted(subcat_meta.values()):
-        sitemap_urls.append((subcategory_public_url(cat_slug, sub_slug), sitemap_date))
+        sitemap_urls.append(
+            (subcategory_public_url(cat_slug, sub_slug), sitemap_date)
+        )
     sitemap_urls.append((SPONSORSHIP_PUBLIC_URL, sponsorship_md_mtime))
     write_sitemap_xml(site_dir / "sitemap.xml", sitemap_urls)
     (site_dir / "llms.txt").write_text(llms_txt, encoding="utf-8")
