@@ -24,6 +24,7 @@ costs ~4x more to scan. Always --dry-run first to check the estimate.
 Usage: python fetch_pypi_downloads_via_bigquery.py [--dry-run] NAME [NAME ...]
 """
 
+import shlex
 import subprocess
 import sys
 from json import loads
@@ -34,7 +35,17 @@ MAX_BYTES_BILLED = 400_000_000_000
 
 
 def fetch_bigquery(names: list[str], dry_run: bool) -> dict[str, int]:
-    in_list = ", ".join(f"'{name}'" for name in names)
+    """Fetch download counts for a list of package names via BigQuery.
+
+    Args:
+        names: A list of package names to query.
+        dry_run: If True, only run the query in dry-run mode.
+
+    Returns:
+        A dictionary mapping package names to their download counts.
+    """
+    # Use shlex.quote to safely escape each name for SQL injection prevention
+    in_list = ", ".join(f"'{shlex.quote(name)}'" for name in names)
     query = (
         "SELECT project, COUNT(*) AS downloads "
         "FROM `bigquery-public-data.pypi.file_downloads` "
@@ -43,14 +54,18 @@ def fetch_bigquery(names: list[str], dry_run: bool) -> dict[str, int]:
         f"AND project IN ({in_list}) "
         "GROUP BY project"
     )
-    cmd = ["bq", "query", "--use_legacy_sql=false", "--format=json", f"--maximum_bytes_billed={MAX_BYTES_BILLED}"]
+    cmd = [
+        "bq",
+        "query",
+        "--use_legacy_sql=false",
+        "--format=json",
+        f"--maximum_bytes_billed={MAX_BYTES_BILLED}",
+    ]
     if dry_run:
         cmd.append("--dry_run")
+    # Append the query as a separate argument to avoid shell parsing issues
     cmd.append(query)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(result.stderr, file=sys.stderr)
-        sys.exit(1)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     if dry_run:
         print(result.stdout.strip() or result.stderr.strip())
         sys.exit(0)
@@ -59,6 +74,7 @@ def fetch_bigquery(names: list[str], dry_run: bool) -> dict[str, int]:
 
 
 def main() -> None:
+    """Main entry point for the script."""
     dry_run = "--dry-run" in sys.argv
     names = set()
     for arg in sys.argv[1:]:
@@ -66,12 +82,18 @@ def main() -> None:
             continue
         pkg = resolve(arg)
         if pkg is None:
-            print(f"{arg}: not pip-installable per pypi_name_overrides.json, skipping", file=sys.stderr)
+            print(
+                f"{arg}: not pip-installable per pypi_name_overrides.json, skipping",
+                file=sys.stderr,
+            )
         else:
             names.add(pkg)
     names = sorted(names)
     if not names:
-        print("Usage: python fetch_pypi_downloads_via_bigquery.py [--dry-run] NAME [NAME ...]", file=sys.stderr)
+        print(
+            "Usage: python fetch_pypi_downloads_via_bigquery.py [--dry-run] NAME [NAME ...]",
+            file=sys.stderr,
+        )
         sys.exit(1)
     counts = fetch_bigquery(names, dry_run)
     for name in names:
