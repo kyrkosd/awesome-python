@@ -1,6 +1,10 @@
 """Tests for fetch_github_stars module."""
 
 import json
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
+
+import httpx
 
 from fetch_github_stars import (
     build_graphql_query,
@@ -11,29 +15,44 @@ from fetch_github_stars import (
 
 
 class TestExtractGithubRepos:
+    """Tests for extract_github_repos function."""
+
     def test_extracts_owner_repo_from_github_url(self):
+        """Test extraction of owner/repo from a single GitHub URL."""
         readme = "* [requests](https://github.com/psf/requests) - HTTP lib."
         result = extract_github_repos(readme)
         assert result == {"psf/requests"}
 
     def test_multiple_repos(self):
-        readme = "* [requests](https://github.com/psf/requests) - HTTP.\n* [flask](https://github.com/pallets/flask) - Micro."
+        """Test extraction of multiple GitHub repositories."""
+        readme = (
+            "* [requests](https://github.com/psf/requests) - HTTP.\n"
+            "* [flask](https://github.com/pallets/flask) - Micro."
+        )
         result = extract_github_repos(readme)
         assert result == {"psf/requests", "pallets/flask"}
 
     def test_deduplicates(self):
-        readme = "* [a](https://github.com/org/repo) - A.\n* [b](https://github.com/org/repo) - B."
+        """Test that duplicate repositories are deduplicated."""
+        readme = (
+            "* [a](https://github.com/org/repo) - A.\n"
+            "* [b](https://github.com/org/repo) - B."
+        )
         result = extract_github_repos(readme)
         assert result == {"org/repo"}
 
     def test_strips_fragment(self):
+        """Test that URL fragments are stripped."""
         readme = "* [lib](https://github.com/org/repo#section) - Lib."
         result = extract_github_repos(readme)
         assert result == {"org/repo"}
 
 
 class TestSaveCache:
+    """Tests for save_cache function."""
+
     def test_creates_directory_and_writes_json(self, tmp_path, monkeypatch):
+        """Test that save_cache creates directories and writes valid JSON."""
         data_dir = tmp_path / "data"
         cache_file = data_dir / "stars.json"
         monkeypatch.setattr("fetch_github_stars.DATA_DIR", data_dir)
@@ -44,7 +63,10 @@ class TestSaveCache:
 
 
 class TestBuildGraphqlQuery:
+    """Tests for build_graphql_query function."""
+
     def test_single_repo(self):
+        """Test query generation for a single repository."""
         query = build_graphql_query(["psf/requests"])
         assert "repository" in query
         assert 'owner: "psf"' in query
@@ -52,58 +74,73 @@ class TestBuildGraphqlQuery:
         assert "stargazerCount" in query
 
     def test_multiple_repos_use_aliases(self):
+        """Test that multiple repositories use aliases."""
         query = build_graphql_query(["psf/requests", "pallets/flask"])
         assert "repo_0:" in query
         assert "repo_1:" in query
 
     def test_empty_list(self):
+        """Test that an empty list returns an empty string."""
         query = build_graphql_query([])
         assert query == ""
 
     def test_skips_repos_with_quotes_in_name(self):
+        """Test that repos with quotes in the name are skipped."""
         query = build_graphql_query(['org/"bad"'])
         assert query == ""
 
     def test_skips_only_bad_repos(self):
+        """Test that only valid repos are included when mixed."""
         query = build_graphql_query(["good/repo", 'bad/"repo"'])
         assert "good" in query
         assert "bad" not in query
 
     def test_skips_graphql_injection_in_owner(self):
+        """Test that GraphQL injection in owner is skipped."""
         query = build_graphql_query(['org"){evil}/repo'])
         assert query == ""
 
     def test_skips_graphql_injection_in_name(self):
+        """Test that GraphQL injection in name is skipped."""
         query = build_graphql_query(['org/repo"){evil}'])
         assert query == ""
 
     def test_skips_owner_starting_with_hyphen(self):
+        """Test that owners starting with hyphen are skipped."""
         query = build_graphql_query(["-bad/repo"])
         assert query == ""
 
     def test_skips_owner_starting_with_dot(self):
+        """Test that owners starting with dot are skipped."""
         query = build_graphql_query([".bad/repo"])
         assert query == ""
 
     def test_skips_repo_starting_with_dot(self):
+        """Test that repos starting with dot are skipped."""
         query = build_graphql_query(["org/.hidden"])
         assert query == ""
 
     def test_allows_repo_with_dots_and_underscores(self):
+        """Test that repos with dots and underscores are allowed."""
         query = build_graphql_query(["org/my_repo.py"])
         assert 'name: "my_repo.py"' in query
 
     def test_allows_hyphenated_owner(self):
+        """Test that hyphenated owners are allowed."""
         query = build_graphql_query(["my-org/repo"])
         assert 'owner: "my-org"' in query
 
     def test_skips_owner_with_underscore(self):
+        """Test that owners with underscores are skipped."""
         query = build_graphql_query(["bad_owner/repo"])
         assert query == ""
 
 
 class TestParseGraphqlResponse:
+    """Tests for parse_graphql_response function."""
+
     def test_parses_star_count_and_owner(self):
+        """Test parsing of star count and owner from response."""
         data = {
             "repo_0": {
                 "stargazerCount": 52467,
@@ -116,18 +153,21 @@ class TestParseGraphqlResponse:
         assert result["psf/requests"]["owner"] == "psf"
 
     def test_skips_null_repos(self):
+        """Test that null repos are skipped."""
         data = {"repo_0": None}
         repos = ["deleted/repo"]
         result = parse_graphql_response(data, repos)
         assert result == {}
 
     def test_handles_missing_owner(self):
+        """Test handling of missing owner in response."""
         data = {"repo_0": {"stargazerCount": 100}}
         repos = ["org/repo"]
         result = parse_graphql_response(data, repos)
         assert result["org/repo"]["owner"] == ""
 
     def test_multiple_repos(self):
+        """Test parsing of multiple repos in response."""
         data = {
             "repo_0": {"stargazerCount": 100, "owner": {"login": "a"}},
             "repo_1": {"stargazerCount": 200, "owner": {"login": "b"}},
@@ -139,6 +179,7 @@ class TestParseGraphqlResponse:
         assert result["b/y"]["stars"] == 200
 
     def test_extracts_last_commit_at(self):
+        """Test extraction of last commit date."""
         data = {
             "repo_0": {
                 "stargazerCount": 100,
@@ -151,6 +192,7 @@ class TestParseGraphqlResponse:
         assert result["org/repo"]["last_commit_at"] == "2025-06-01T00:00:00Z"
 
     def test_missing_default_branch_ref(self):
+        """Test handling of missing default branch ref."""
         data = {"repo_0": {"stargazerCount": 50, "owner": {"login": "org"}}}
         repos = ["org/repo"]
         result = parse_graphql_response(data, repos)
@@ -161,8 +203,7 @@ class TestMainSkipsFreshCache:
     """Verify that main() skips fetching when all cache entries are fresh."""
 
     def test_skips_fetch_when_cache_is_fresh(self, tmp_path, monkeypatch, capsys):
-        from datetime import datetime, timedelta, timezone
-
+        """Test that main skips fetching if cache is fresh."""
         from fetch_github_stars import main
 
         # Set up a minimal README with one repo
@@ -201,9 +242,7 @@ class TestMainSkipsFreshCache:
         assert "Cache is up to date" in output
 
     def test_fetches_when_cache_is_stale(self, tmp_path, monkeypatch, capsys):
-        from datetime import datetime, timedelta, timezone
-        from unittest.mock import MagicMock
-
+        """Test that main fetches if cache is stale."""
         from fetch_github_stars import main
 
         # Set up a minimal README with one repo
