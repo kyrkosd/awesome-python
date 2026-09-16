@@ -266,7 +266,11 @@ class TestParseReadmeSections:
         groups = parse_readme(readme)
         cats = groups[0]["categories"]
         assert cats[0]["description"] == "Algorithms. Also see awesome-algos."
-        assert cats[0]["description_html"] == 'Algorithms. Also see <a href="https://example.com" target="_blank" rel="noopener">awesome-algos</a>.'
+        exp_html = ('Algorithms. Also see '
+                    '<a href="https://example.com" '
+                    'target="_blank" '
+                    'rel="noopener">awesome-algos</a>.')
+        assert cats[0]["description_html"] == exp_html
 
 
 class TestParseGroupedReadme:
@@ -389,7 +393,10 @@ class TestParseSectionEntries:
 
     def test_flat_entries(self):
         """Test parsing flat list of entries."""
-        nodes = _content_nodes("- [django](https://example.com/d) - A web framework.\n- [flask](https://example.com/f) - A micro framework.\n")
+        nodes = _content_nodes(
+            "- [django](https://example.com/d) - A web framework.\n"
+            "- [flask](https://example.com/f) - A micro framework.\n"
+        )
         entries = _parse_section_entries(nodes)
         assert len(entries) == 2
         assert entries[0]["name"] == "django"
@@ -408,7 +415,13 @@ class TestParseSectionEntries:
 
     def test_subcategorized_entries(self):
         """Test parsing subcategorized entries."""
-        nodes = _content_nodes("- Algorithms\n  - [algos](https://x.com/a) - Algo lib.\n  - [sorts](https://x.com/s) - Sort lib.\n- Design Patterns\n  - [patterns](https://x.com/p) - Pattern lib.\n")
+        nodes = _content_nodes(
+            "- Algorithms\n"
+            "  - [algos](https://x.com/a) - Algo lib.\n"
+            "  - [sorts](https://x.com/s) - Sort lib.\n"
+            "- Design Patterns\n"
+            "  - [patterns](https://x.com/p) - Pattern lib.\n"
+        )
         entries = _parse_section_entries(nodes)
         assert len(entries) == 3
         assert entries[0]["name"] == "algos"
@@ -417,9 +430,12 @@ class TestParseSectionEntries:
     def test_text_before_link_is_subcategory(self):
         """Test that text before a link is treated as a subcategory label."""
         nodes = _content_nodes(
-            "- MySQL - [awesome-mysql](http://example.com/awesome-mysql/)\n"
-            "  - [mysqlclient](https://example.com/mysqlclient) - MySQL connector.\n"
-            "  - [pymysql](https://example.com/pymysql) - Pure Python MySQL driver.\n"
+            "- MySQL - [awesome-mysql](http://example.com/"
+            "awesome-mysql/)\n"
+            "  - [mysqlclient](https://example.com/mysqlclient) "
+            "- MySQL connector.\n"
+            "  - [pymysql](https://example.com/pymysql) "
+            "- Pure Python MySQL driver.\n"
         )
         entries = _parse_section_entries(nodes)
         # awesome-mysql is a subcategory label, not an entry
@@ -432,9 +448,12 @@ class TestParseSectionEntries:
     def test_also_see_sub_entries(self):
         """Test parsing 'also see' sub-entries."""
         nodes = _content_nodes(
-            "- [asyncio](https://docs.python.org/3/library/asyncio.html) - Async I/O.\n"
-            "  - [awesome-asyncio](https://github.com/timofurrer/awesome-asyncio)\n"
-            "- [trio](https://github.com/python-trio/trio) - Friendly async.\n"
+            "- [asyncio](https://docs.python.org/3/library/"
+            "asyncio.html) - Async I/O.\n"
+            "  - [awesome-asyncio](https://github.com/"
+            "timofurrer/awesome-asyncio)\n"
+            "- [trio](https://github.com/python-trio/trio) "
+            "- Friendly async.\n"
         )
         entries = _parse_section_entries(nodes)
         assert len(entries) == 2
@@ -468,7 +487,10 @@ class TestParseSectionEntries:
 
     def test_description_html_escapes_xss(self):
         """Test that HTML in descriptions is escaped for XSS safety."""
-        nodes = _content_nodes("- [lib](https://x.com) - A <script>alert(1)</script> lib.\n")
+        nodes = _content_nodes(
+            "- [lib](https://x.com) - A "
+            "&lt;script&gt;alert(1)&lt;/script&gt; lib.\n"
+        )
         entries = _parse_section_entries(nodes)
         assert "<script>" not in entries[0]["description"]
         assert "&lt;script&gt;" in entries[0]["description"]
@@ -515,7 +537,10 @@ class TestParseRealReadme:
         for cat in self.cats:
             for entry in cat["entries"]:
                 if not entry["name"].strip():
-                    bad.append(f"{cat['name']}: empty entry name (url={entry['url']})")
+                    bad.append(
+                        f"{cat['name']}: empty entry name "
+                        f"(url={entry['url']})"
+                    )
         assert bad == [], "Entries with empty names:\n" + "\n".join(bad)
 
     def test_all_entries_have_valid_urls(self):
@@ -532,7 +557,8 @@ class TestParseRealReadme:
                     if not see["url"].startswith(("https://", "http://")):
                         bad.append(
                             f"[{cat['name']}] {see['name']} "
-                            f"(also_see): has invalid url: {see['url']!r}"
+                            f"(also_see): has invalid url: "
+                            f"{see['url']!r}"
                         )
         assert bad == [], "Entries with invalid URLs:\n" + "\n".join(bad)
 
@@ -551,7 +577,9 @@ class TestParseRealReadme:
                 if not re.match(r"^\(part of ", entry["description"]):
                     continue
                 name = normalize(entry["name"])
-                if PYPI_NAME_RE.match(name) and overrides.get(name, name) is not None:
+                if PYPI_NAME_RE.match(name) and overrides.get(
+                    name, name
+                ) is not None:
                     bad.append(
                         f"[{entry['name']}] needs a null entry in "
                         "pypi_name_overrides.json"
@@ -568,7 +596,9 @@ class TestParseRealReadme:
         end_idx = None
         for i, node in enumerate(root.children):
             if node.type == "heading" and node.tag in ("h1", "h2"):
-                text = render_inline_text(node.children[0].children) if node.children else ""
+                text = render_inline_text(
+                    node.children[0].children
+                ) if node.children else ""
                 if projects_idx is None and text == "Projects":
                     projects_idx = i
                 elif end_idx is None and text in ("Resources", "Contributing"):
