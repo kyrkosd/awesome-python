@@ -28,11 +28,15 @@ def _parse_inline(md_text: str) -> list[SyntaxTreeNode]:
 
 
 class TestRenderInlineHtml:
+    """Tests for render_inline_html function."""
+
     def test_plain_text_escapes_html(self):
+        """Test that plain text escapes HTML entities."""
         children = _parse_inline("Hello <world> & friends")
         assert render_inline_html(children) == "Hello &lt;world&gt; &amp; friends"
 
     def test_link_with_target(self):
+        """Test that links include target and rel attributes."""
         children = _parse_inline("[name](https://example.com)")
         html = render_inline_html(children)
         assert 'href="https://example.com"' in html
@@ -41,18 +45,22 @@ class TestRenderInlineHtml:
         assert ">name</a>" in html
 
     def test_emphasis(self):
+        """Test that emphasis is rendered correctly."""
         children = _parse_inline("*italic* text")
         assert "<em>italic</em>" in render_inline_html(children)
 
     def test_strong(self):
+        """Test that strong text is rendered correctly."""
         children = _parse_inline("**bold** text")
         assert "<strong>bold</strong>" in render_inline_html(children)
 
     def test_code_inline(self):
+        """Test that inline code is rendered correctly."""
         children = _parse_inline("`some code`")
         assert "<code>some code</code>" in render_inline_html(children)
 
     def test_mixed_link_and_text(self):
+        """Test mixed text and links in inline rendering."""
         children = _parse_inline("See [foo](https://x.com) for details.")
         html = render_inline_html(children)
         assert "See " in html
@@ -61,19 +69,25 @@ class TestRenderInlineHtml:
 
 
 class TestRenderInlineText:
+    """Tests for render_inline_text function."""
+
     def test_plain_text(self):
+        """Test plain text rendering."""
         children = _parse_inline("Hello world")
         assert render_inline_text(children) == "Hello world"
 
     def test_link_becomes_text(self):
+        """Test that links are converted to plain text."""
         children = _parse_inline("See [awesome-algos](https://github.com/x/y).")
         assert render_inline_text(children) == "See awesome-algos."
 
     def test_emphasis_stripped(self):
+        """Test that emphasis markers are stripped in text mode."""
         children = _parse_inline("*italic* text")
         assert render_inline_text(children) == "italic text"
 
     def test_code_inline_kept(self):
+        """Test that code blocks are kept in text mode."""
         children = _parse_inline("`code` here")
         assert render_inline_text(children) == "code here"
 
@@ -160,25 +174,31 @@ GROUPED_README = textwrap.dedent("""\
 
 
 class TestParseReadmeSections:
+    """Tests for parse_readme section parsing logic."""
+
     def test_ungrouped_categories_go_to_other(self):
+        """Test ungrouped categories go to 'Other'."""
         groups = parse_readme(MINIMAL_README)
         assert len(groups) == 1
         assert groups[0]["name"] == "Other"
         assert len(groups[0]["categories"]) == 2
 
     def test_ungrouped_category_names(self):
+        """Test ungrouped category names are preserved."""
         groups = parse_readme(MINIMAL_README)
         cats = groups[0]["categories"]
         assert cats[0]["name"] == "Alpha"
         assert cats[1]["name"] == "Beta"
 
     def test_category_slugs(self):
+        """Test category slugs are generated correctly."""
         groups = parse_readme(MINIMAL_README)
         cats = groups[0]["categories"]
         assert cats[0]["slug"] == "alpha"
         assert cats[1]["slug"] == "beta"
 
     def test_category_description(self):
+        """Test category descriptions are parsed correctly."""
         groups = parse_readme(MINIMAL_README)
         cats = groups[0]["categories"]
         assert cats[0]["description"] == "Libraries for alpha stuff."
@@ -187,6 +207,7 @@ class TestParseReadmeSections:
         assert cats[1]["description_html"] == "Tools for beta."
 
     def test_contributing_skipped(self):
+        """Test that Contributing section is skipped."""
         groups = parse_readme(MINIMAL_README)
         all_names = []
         for g in groups:
@@ -194,10 +215,12 @@ class TestParseReadmeSections:
         assert "Contributing" not in all_names
 
     def test_no_projects_heading(self):
+        """Test behavior when no Projects heading exists."""
         groups = parse_readme("# Just a heading\n\nSome text.\n")
         assert groups == []
 
     def test_no_description(self):
+        """Test handling of categories without descriptions."""
         readme = textwrap.dedent("""\
             # Title
 
@@ -224,6 +247,7 @@ class TestParseReadmeSections:
         assert cats[0]["entries"][0]["name"] == "item"
 
     def test_description_with_link_stripped(self):
+        """Test that links in descriptions are kept in HTML but text."""
         readme = textwrap.dedent("""\
             # T
 
@@ -246,32 +270,40 @@ class TestParseReadmeSections:
 
 
 class TestParseGroupedReadme:
+    """Tests for parse_readme grouped reading logic."""
+
     def test_group_count(self):
+        """Test correct number of groups are parsed."""
         groups = parse_readme(GROUPED_README)
         assert len(groups) == 2
 
     def test_group_names(self):
+        """Test group names are parsed correctly."""
         groups = parse_readme(GROUPED_README)
         assert groups[0]["name"] == "Group One"
         assert groups[1]["name"] == "Group Two"
 
     def test_group_slugs(self):
+        """Test group slugs are generated correctly."""
         groups = parse_readme(GROUPED_README)
         assert groups[0]["slug"] == "group-one"
         assert groups[1]["slug"] == "group-two"
 
     def test_group_one_has_one_category(self):
+        """Test Group One has exactly one category."""
         groups = parse_readme(GROUPED_README)
         assert len(groups[0]["categories"]) == 1
         assert groups[0]["categories"][0]["name"] == "Alpha"
 
     def test_group_two_has_two_categories(self):
+        """Test Group Two has exactly two categories."""
         groups = parse_readme(GROUPED_README)
         assert len(groups[1]["categories"]) == 2
         assert groups[1]["categories"][0]["name"] == "Beta"
         assert groups[1]["categories"][1]["name"] == "Gamma"
 
     def test_empty_group_skipped(self):
+        """Test that empty groups are skipped."""
         readme = textwrap.dedent("""\
             # T
 
@@ -294,6 +326,7 @@ class TestParseGroupedReadme:
         assert groups[0]["name"] == "HasCats"
 
     def test_bold_with_extra_text_not_group_marker(self):
+        """Test bold text with extra content is not a group marker."""
         readme = textwrap.dedent("""\
             # T
 
@@ -316,6 +349,7 @@ class TestParseGroupedReadme:
         assert groups[0]["name"] == "Other"
 
     def test_categories_before_any_group_marker(self):
+        """Test categories before any group marker go to 'Other'."""
         readme = textwrap.dedent("""\
             # T
 
@@ -351,7 +385,10 @@ def _content_nodes(md_text: str) -> list[SyntaxTreeNode]:
 
 
 class TestParseSectionEntries:
+    """Tests for _parse_section_entries function."""
+
     def test_flat_entries(self):
+        """Test parsing flat list of entries."""
         nodes = _content_nodes("- [django](https://example.com/d) - A web framework.\n- [flask](https://example.com/f) - A micro framework.\n")
         entries = _parse_section_entries(nodes)
         assert len(entries) == 2
@@ -362,6 +399,7 @@ class TestParseSectionEntries:
         assert entries[1]["name"] == "flask"
 
     def test_link_only_entry(self):
+        """Test parsing an entry with only a link."""
         nodes = _content_nodes("- [tool](https://x.com)\n")
         entries = _parse_section_entries(nodes)
         assert len(entries) == 1
@@ -369,6 +407,7 @@ class TestParseSectionEntries:
         assert entries[0]["description"] == ""
 
     def test_subcategorized_entries(self):
+        """Test parsing subcategorized entries."""
         nodes = _content_nodes("- Algorithms\n  - [algos](https://x.com/a) - Algo lib.\n  - [sorts](https://x.com/s) - Sort lib.\n- Design Patterns\n  - [patterns](https://x.com/p) - Pattern lib.\n")
         entries = _parse_section_entries(nodes)
         assert len(entries) == 3
@@ -376,6 +415,7 @@ class TestParseSectionEntries:
         assert entries[2]["name"] == "patterns"
 
     def test_text_before_link_is_subcategory(self):
+        """Test that text before a link is treated as a subcategory label."""
         nodes = _content_nodes(
             "- MySQL - [awesome-mysql](http://example.com/awesome-mysql/)\n"
             "  - [mysqlclient](https://example.com/mysqlclient) - MySQL connector.\n"
@@ -390,6 +430,7 @@ class TestParseSectionEntries:
         assert "pymysql" in names
 
     def test_also_see_sub_entries(self):
+        """Test parsing 'also see' sub-entries."""
         nodes = _content_nodes(
             "- [asyncio](https://docs.python.org/3/library/asyncio.html) - Async I/O.\n"
             "  - [awesome-asyncio](https://github.com/timofurrer/awesome-asyncio)\n"
@@ -404,6 +445,7 @@ class TestParseSectionEntries:
         assert entries[1]["also_see"] == []
 
     def test_entry_count_includes_also_see(self):
+        """Test that entry count includes 'also see' items."""
         readme = textwrap.dedent("""\
             # T
 
@@ -425,6 +467,7 @@ class TestParseSectionEntries:
         assert cats[0]["entry_count"] == 3
 
     def test_description_html_escapes_xss(self):
+        """Test that HTML in descriptions is escaped for XSS safety."""
         nodes = _content_nodes("- [lib](https://x.com) - A <script>alert(1)</script> lib.\n")
         entries = _parse_section_entries(nodes)
         assert "<script>" not in entries[0]["description"]
@@ -432,28 +475,42 @@ class TestParseSectionEntries:
 
 
 class TestParseRealReadme:
+    """Tests against the actual README.md file."""
+
+    def __init__(self):
+        """Initialize TestParseRealReadme."""
+        self.readme_text = ""
+        self.groups = []
+        self.cats = []
+
     @pytest.fixture(autouse=True)
     def load_readme(self):
+        """Load the README.md file and parse it."""
         readme_path = Path(__file__).resolve().parents[2] / "README.md"
         self.readme_text = readme_path.read_text(encoding="utf-8")
         self.groups = parse_readme(self.readme_text)
         self.cats = [c for g in self.groups for c in g["categories"]]
 
     def test_at_least_11_groups(self):
+        """Test that at least 11 groups are found."""
         assert len(self.groups) >= 11
 
     def test_at_least_69_categories(self):
+        """Test that at least 69 categories are found."""
         assert len(self.cats) >= 69
 
     def test_contributing_not_in_results(self):
+        """Test that Contributing section is not in results."""
         all_names = [c["name"] for c in self.cats]
         assert "Contributing" not in all_names
 
     def test_entry_counts_nonzero(self):
+        """Test that all categories have non-zero entry counts."""
         for cat in self.cats:
             assert cat["entry_count"] > 0, f"{cat['name']} has 0 entries"
 
     def test_all_entries_have_nonempty_names(self):
+        """Test that all entries have non-empty names."""
         bad = []
         for cat in self.cats:
             for entry in cat["entries"]:
@@ -462,23 +519,30 @@ class TestParseRealReadme:
         assert bad == [], "Entries with empty names:\n" + "\n".join(bad)
 
     def test_all_entries_have_valid_urls(self):
+        """Test that all entries have valid URLs."""
         bad = []
         for cat in self.cats:
             for entry in cat["entries"]:
                 if not entry["url"].startswith(("https://", "http://")):
-                    bad.append(f"{cat['name']}: [{entry['name']}] has invalid url: {entry['url']!r}")
+                    bad.append(
+                        f"[{cat['name']}] {entry['name']}: "
+                        f"has invalid url: {entry['url']!r}"
+                    )
                 for see in entry["also_see"]:
                     if not see["url"].startswith(("https://", "http://")):
-                        bad.append(f"{cat['name']}: [{see['name']}] (also_see) has invalid url: {see['url']!r}")
+                        bad.append(
+                            f"[{cat['name']}] {see['name']} "
+                            f"(also_see): has invalid url: {see['url']!r}"
+                        )
         assert bad == [], "Entries with invalid URLs:\n" + "\n".join(bad)
 
     def test_bundled_entries_are_never_queried_on_pypi(self):
-        """A "(part of X)" entry ships inside something else, so it has no package of its own.
+        """Test bundled entries are not queried on PyPI.
 
-        If its display name happens to be PyPI-shaped and no null override
-        records that, the download sweep queries PyPI and silently measures
-        whatever unrelated project owns the name. That is how uv-audit picked
-        up a third-party package after being renamed from "uv audit".
+        A "(part of X)" entry ships inside something else, so it has no
+        package of its own. If its display name happens to be PyPI-shaped
+        and no null override records that, the download sweep queries PyPI
+        and silently measures whatever unrelated project owns the name.
         """
         overrides = load_overrides()
         bad = []
@@ -488,16 +552,14 @@ class TestParseRealReadme:
                     continue
                 name = normalize(entry["name"])
                 if PYPI_NAME_RE.match(name) and overrides.get(name, name) is not None:
-                    bad.append(f"[{entry['name']}] needs a null entry in pypi_name_overrides.json")
+                    bad.append(
+                        f"[{entry['name']}] needs a null entry in "
+                        "pypi_name_overrides.json"
+                    )
         assert bad == [], "Bundled entries the download sweep would query:\n" + "\n".join(bad)
 
     def test_no_malformed_entry_lines(self):
-        """Detect list items that look like entries but have broken link syntax.
-
-        Walks the markdown-it AST for list items whose inline text starts
-        with '[' but contain no link node. This catches broken markdown
-        like '- [name(url)' where the closing '](' is missing.
-        """
+        """Test for malformed entry lines with broken link syntax."""
         md = MarkdownIt("commonmark")
         root = SyntaxTreeNode(md.parse(self.readme_text))
 
@@ -524,6 +586,7 @@ class TestParseRealReadme:
         assert bad == [], "List items with broken link syntax:\n" + "\n".join(bad)
 
     def _check_list_for_broken_links(self, bullet_list, bad):
+        """Recursively check list items for broken links."""
         for list_item in bullet_list.children:
             if list_item.type != "list_item":
                 continue
